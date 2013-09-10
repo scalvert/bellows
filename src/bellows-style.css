@@ -1,11 +1,17 @@
 /* Base Style */
-.m-bello {
+.m-bellows {
     color: black;
 }
+
+.m-bellows .m-item {
+    margin: 0;
+}
+
 .m-bellows .m-header {
     height: 54px;
     line-height: 52px;
     padding: 0 20px;
+    margin: -1px 0 0;
     border: solid 1px #ededed;
     border-width: 1px 0;
     position: relative;
