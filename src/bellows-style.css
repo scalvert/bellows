@@ -3,7 +3,9 @@
     color: black;
 }
 
-.m-bellows .m-item {
+.m-bellows .m-item,
+.m-bellows li,
+.m-bellows h3 {
     margin: 0;
 }
 
