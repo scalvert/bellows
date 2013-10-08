@@ -7,6 +7,7 @@ Mobify.UI = Mobify.UI || {};
 
     $.extend($.support, {
         'touch': 'ontouchend' in document
+        'pointer': (window.navigator.msPointerEnabled !== undefined)
     });
 
 })(Mobify.$, document);
@@ -22,9 +23,14 @@ Mobify.UI.Utils = (function($) {
     /**
         Events (either touch or mouse)
     */
-    exports.events = (has.touch)
-        ? {down: 'touchstart', move: 'touchmove', up: 'touchend'}
-        : {down: 'mousedown', move: 'mousemove', up: 'mouseup'};
+
+    if (has.pointer) {
+        exports.events = {down: 'MSPointerDown', move: 'MSPointerMove', up: 'MSPointerUp'};
+    } else if (has.touch) {
+        exports.events = {down: 'touchstart', move: 'touchmove', up: 'touchend'};
+    } else {
+        exports.events = {down: 'mousedown', move: 'mousemove', up: 'mouseup'};
+    }
 
     /**
         Returns the position of a mouse or touch event in (x, y)
