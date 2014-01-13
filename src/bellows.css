@@ -1,10 +1,8 @@
 .m-bellows {
     list-style: none;
+    padding: 0;
 }
-.m-bellows li {
-    list-style: none;
-    margin: 0;
-}
+
 .m-bellows .m-content {
     -webkit-transition: max-height 0.5s ease;
     -moz-transition: max-height 0.5s ease;
@@ -13,6 +11,7 @@
     overflow: hidden;
     max-height: 0;
 }
+
 .m-bellows .m-active > .m-content {
     max-height: 10000px; /* IE hack */
 }
@@ -20,14 +19,10 @@
 .m-bellows .m-header {
     z-index: 1;
     position: relative;
-    margin-top: -1px;
+    margin: -1px 0 0;
     pointer-events: cursor; /* For iOS */
 }
 
-.m-bellows h3 {
-    margin: 0;
-}
-
 .m-bellows .m-header > a {
-    pointer-events: none;   
+    pointer-events: none;
 }
