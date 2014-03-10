@@ -1,311 +1,191 @@
 var Mobify = window.Mobify = window.Mobify || {};
 Mobify.$ = Mobify.$ || window.Zepto || window.jQuery;
-Mobify.UI = Mobify.UI || {};
 
-(function($, document) {
-    $.support = $.support || {};
+;(function($) {
 
-    $.extend($.support, {
-        'touch': 'ontouchend' in document
-    });
+    var noop = function(){};
 
-})(Mobify.$, document);
-
-
-
-/**
-    @module Holds common functions relating to UI.
-*/
-Mobify.UI.Utils = (function($) {
-    var exports = {}
-        , has = $.support;
-    /**
-        Events (either touch or mouse)
-    */
-    exports.events = (has.touch)
-        ? {down: 'touchstart', move: 'touchmove', up: 'touchend'}
-        : {down: 'mousedown', move: 'mousemove', up: 'mouseup'};
-
-    /**
-        Returns the position of a mouse or touch event in (x, y)
-        @function
-        @param {Event} touch or mouse event
-        @returns {Object} X and Y coordinates
-    */
-    exports.getCursorPosition = (has.touch)
-        ? function(e) {e = e.originalEvent || e; return {x: e.touches[0].clientX, y: e.touches[0].clientY}}
-        : function(e) {return {x: e.clientX, y: e.clientY}};
-
-
-    /**
-        Returns prefix property for current browser.
-        @param {String} CSS Property Name
-        @return {String} Detected CSS Property Name
-    */
-    exports.getProperty = function(name) {
-        var prefixes = ['Webkit', 'Moz', 'O', 'ms', '']
-          , testStyle = document.createElement('div').style;
-        
-        for (var i = 0; i < prefixes.length; ++i) {
-            if (testStyle[prefixes[i] + name] !== undefined) {
-                return prefixes[i] + name;
-            }
-        }
-
-        // Not Supported
-        return;
-    };
-
-    // determine which transition event to use
-    function whichTransitionEvent(){
-        // http://stackoverflow.com/questions/5023514/how-do-i-normalize-css3-transition-functions-across-browsers
-        // hack for ios 3.1.* because of poor transition support.
-        if (/iPhone\ OS\ 3_1/.test(navigator.userAgent)) {
-            return undefined;
-        }
-
-        var el = document.createElement('fakeelement');
-        var transitions = {
-            'transition':'transitionEnd transitionend',
-            'OTransition':'oTransitionEnd',
-            'MSTransition':'msTransitionEnd',
-            'MozTransition':'transitionend',
-            'WebkitTransition':'webkitTransitionEnd'
-        };
-
-        var t;
-        for(t in transitions){
-            if( el.style[t] !== undefined ){
-                return transitions[t];
-            }
-        }
-        return;
-    };
-
-    $.extend(exports.events, {
-        'transitionend': whichTransitionEvent()
-    });
-
-    return exports;
-
-})(Mobify.$);
-
-
-/*
- Supports accordions in an accordion
-*/
-Mobify.UI.Bellows = (function($, Utils) {
-   
-    var has = $.support;
-
-    // Constructor
     var Bellows = function(element, options) {
-
-        // Bellows settings
-        this.settings = $.extend({
-            dragRadius: 10
-            , closedClass: 'm-closed'
-            , openedClass: 'm-opened'
-            , activeClass: 'm-active'
-            , contentClass: 'm-content'
-            , innerContentClass: 'm-inner-content'
-            , headerClass: 'm-header'
-            , itemClass: 'm-item'
-            , moduleClass: 'm-bellows'
-            , onTransitionDone: null
-            , onOpened: null
-            , onClosed: null
-        }, options || {});
-
-        this.$element = $(element);
-        
-        $.extend(this, this.bind());
-        return this;
+        this.init(element, options);
     };
 
-    Bellows.prototype.bind = function() {
-        var $element = this.$element
-            , xy
-            , dxy
-            , settings = this.settings
-            , dragRadius = settings.dragRadius
-            , openedClass = settings.openedClass
-            , closedClass = settings.closedClass
-            , activeClass = settings.activeClass
-            , contentClass = settings.contentClass
-            , headerClass = settings.headerClass
-            , itemClass = settings.itemClass
-            , moduleClass = settings.moduleClass;
+    Bellows.DEFAULTS = {
+        dragRadius: 10,
 
-        function endTransition(){
-            // transition attached to .content elements, use parent to grab .item
-            var $item = $(this).parent();
-            // if the transition is ending
-            if ($item.hasClass(closedClass)) $(this).parent().removeClass(activeClass);
-            // Execute any callbacks that were passed
-            executeCallbacks($item.hasClass(closedClass) ? 'closing' : 'opening');
-            recalculateHeight($element);
-        };
+        closedClass: 'm-closed',
+        openedClass: 'm-opened',
+        activeClass: 'm-active',
+        contentClass: 'm-content',
+        innerContentClass: 'm-inner-content',
+        headerClass: 'm-header',
+        itemClass: 'm-item',
+        moduleClass: 'm-bellows',
 
-        // Recalculate proper height for specified bellows
-        function recalculateHeight($bellows) {
-            var height = 0;
+        initialized: noop,
+        beforeOpened: noop,
+        afterOpened: noop,
+        beforeClosed: noop,
+        afterClosed: noop
+    };
 
-            $bellows.children( '.' + itemClass).each(function(index) {
-                var $item = $(this);
-                height += $item.height();
-            });
-
-            $bellows.css('min-height', height + 'px');
-        }
-
-        // Calculate height of individual accordion item (useful for dynamic item creation)
-        function recalculateItemHeight($item) {
-
-            var $content = $item.children('.' + contentClass);
-            // determine which height function to use (outerHeight not supported by zepto)
-            var contentChildren = $content.children();
-            var contentHeight = ('outerHeight' in contentChildren) ? contentChildren['outerHeight']() : contentChildren['height']();
-            $content.css('max-height', contentHeight * 1.5 +'px');
-            // if transitions are supported, minimize browser reflow by adding the height
-            // of the to-be expanded content element to the height of the entire accordion
-            if (Utils.events.transitionend) {
-                $element.css('min-height', $element.height() + 'px');
-            }
-
-            // we need to wait to recalculate, so that the heights are calculated properly first
-            setTimeout(function() {
-                $currentBellows = $item.closest('.' + moduleClass);
-                recalculateHeight($currentBellows);
-
-                // Resize the parent bellows if it exists
-                $parentBellows = $currentBellows.parent().closest('.' + moduleClass);
-                if($parentBellows.length > 0) {
-                    recalculateItemHeight( $item.parent().closest('.' + itemClass));
-                }
-            }, 150);
-        }
-
-        // Execute any callback functions that are passed to open/close
-        function executeCallbacks(type) {
-            if(type === 'opening' && typeof settings['onOpened'] === "function") {
-                settings['onOpened'].apply(this, arguments);
-            }
-            if(type === 'closing' && typeof settings['onClosed'] === "function") {
-                settings['onClosed'].apply(this, arguments);
-            }
-            if(typeof settings['onTransitionDone'] === "function") {
-                settings['onTransitionDone'].apply(this, arguments);
-            }
-        }
-
-        function close($item) {
-            if($item.hasClass(closedClass)) { executeCallbacks('closing'); }
-            // toggle opened and closed classes
-            $item.removeClass(openedClass);
-            $item.addClass(closedClass);
-            // toggle active class on close only if there is no transition support
-            if(!Utils.events.transitionend) $item.removeClass(activeClass);
-            // set max-height to 0 upon close
-            $item.children('.' + contentClass).css('max-height', '0px');
-        }
-        
-        function open($item) {
-            if($item.hasClass(openedClass)) { executeCallbacks('opening'); }
-            $item.addClass(activeClass);
-            $item.removeClass(closedClass);
-            $item.addClass(openedClass);
-            recalculateItemHeight($item);
-        }
-
-        function down(e) {
-            // get initial position on mouse/touch start
-            xy = Utils.getCursorPosition(e);
-        }
-
-        function move(e) {
-            // update position upon move
-            dxy = Utils.getCursorPosition(e);
-        }
-
-        function up(e) {
-            // if there is dragging, do not close/open bellows
-            if (dxy) {
-                dx = xy.x - dxy.x;
-                dy = xy.y - dxy.y;
-                dxy = undefined;
-                if ((dx*dx) + (dy*dy) > dragRadius*dragRadius) return;
-            }
-            // close or open item depending on active class
-            var $item = $(this).parent();
-            if ($item.hasClass(activeClass)) {
-                close($item);
-            }
-            else {
-                open($item);
-            }
-        }
-
-        function click(e) {
-            e.preventDefault();
-        }
-
+    Bellows.prototype.init = function(element, options) {
+        this.options = $.extend({}, Bellows.DEFAULTS, options);
+        this.$bellows = $(element);
 
         // Auto-open items that are hash linked or have openedClass class
-        var hash = location.hash;
-        var $hashitem = $element.find('.' + headerClass + ' a[href="'+hash+'"]');
+        var hash = window.location.hash;
+        var $hashitem = this.$bellows.find('.' + this.options.headerClass + ' a[href="' + hash + '"]');
 
         if ($hashitem.length) {
             open($hashitem.parent());
-        } else if ($element.find('.' + openedClass).length) {
-            open($element.find('.' + openedClass));
+        } else if (this.$bellows.find('.' + this.options.openedClass).length) {
+            open(this.$bellows.find('.' + this.options.openedClass));
         }
 
-        var $headers = $element.children('.' + itemClass).children('.' + headerClass);
+        var $headers = this.$bellows.children('.' + this.options.itemClass).children('.' + this.options.headerClass);
 
         $headers
-            .on(Utils.events.down, down)
-            .on(Utils.events.move, move)
-            .on(Utils.events.up, up)
+            .on(Utils.events.down, this.down)
+            .on(Utils.events.move, this.move)
+            .on(Utils.events.up, this.up)
             .on('click', click);
+
         if (Utils.events.transitionend) {
-            $element.on(Utils.events.transitionend, '.' + contentClass, endTransition);
+            this.$bellows.on(Utils.events.transitionend, '.' + this.options.contentClass, this.endTransition);
         }
 
-        // API calls
-        return {
-            'settings': settings
-            , 'open': open
-            , 'close': close
-            , 'recalculateItemHeight': recalculateItemHeight
-        };
-        
+        this._trigger('initialized');
     };
-                 
+
+    Bellows.prototype.endTransition = function() {
+        // transition attached to .content elements, use parent to grab .item
+        var $item = $(this).parent();
+        // if the transition is ending
+        if ($item.hasClass(this.options.closedClass)) $(this).parent().removeClass(this.options.activeClass);
+        // Execute any callbacks that were passed
+        this._trigger.call($item, $item.hasClass(this.options.closedClass) ? 'afterClosed' : 'afterOpened');
+        recalculateHeight($bellows);
+    };
+
+    // Recalculate proper height for specified bellows
+    Bellows.prototype.recalculateHeight = function($bellows) {
+        var height = 0;
+
+        $bellows.children('.' + this.options.itemClass).each(function() {
+            var $item = $(this);
+            height += $item.height();
+        });
+
+        $bellows.css('min-height', height + 'px');
+    };
+
+    // Calculate height of individual accordion item (useful for dynamic item creation)
+    Bellows.prototype.recalculateItemHeight = function($item) {
+        var bellows = this;
+        var $content = $item.children('.' + this.options.contentClass);
+        // determine which height function to use (outerHeight not supported by zepto)
+        var contentChildren = $content.children();
+        var contentHeight = ('outerHeight' in contentChildren) ? contentChildren.outerHeight() : contentChildren.height();
+        $content.css('max-height', contentHeight * 1.5 + 'px');
+        // if transitions are supported, minimize browser reflow by adding the height
+        // of the to-be expanded content element to the height of the entire accordion
+        if (Utils.events.transitionend) {
+            this.$bellows.css('min-height', this.$bellows.height() + 'px');
+        }
+
+        // we need to wait to recalculate, so that the heights are calculated properly first
+        setTimeout(function() {
+            $currentBellows = $item.closest('.' + this.options.moduleClass);
+            bellows.recalculateHeight($currentBellows);
+
+            // Resize the parent bellows if it exists
+            $parentBellows = $currentBellows.parent().closest('.' + this.options.moduleClass);
+            if ($parentBellows.length > 0) {
+                bellows.recalculateItemHeight($item.parent().closest('.' + this.options.itemClass));
+            }
+        }, 150);
+    };
+
+    Bellows.prototype.close = function($item) {
+        this._trigger('beforeClosed');
+
+        // toggle opened and closed classes
+        $item.removeClass(this.options.openedClass);
+        $item.addClass(this.options.closedClass);
+        // toggle active class on close only if there is no transition support
+        if (!Utils.events.transitionend) $item.removeClass(this.options.activeClass);
+        // set max-height to 0 upon close
+        $item.children('.' + this.options.contentClass).css('max-height', '0px');
+
+        this._trigger.call($item, 'afterClosed');
+    };
+
+    Bellows.prototype.open = function($item) {
+        this._trigger('beforeOpened');
+
+        $item.addClass(this.options.activeClass);
+        $item.removeClass(this.options.closedClass);
+        $item.addClass(this.options.openedClass);
+        this.recalculateItemHeight($item);
+
+        this._trigger.call($this, 'afterOpened');
+    };
+
+    Bellows.prototype.down = function(e) {
+        // get initial position on mouse/touch start
+        xy = Utils.getCursorPosition(e);
+    };
+
+    Bellows.prototype.move = function(e) {
+        // update position upon move
+        dxy = Utils.getCursorPosition(e);
+    };
+
+    Bellows.prototype.up = function(e) {
+        // if there is dragging, do not close/open bellows
+        if (dxy) {
+            dx = xy.x - dxy.x;
+            dy = xy.y - dxy.y;
+            dxy = undefined;
+            if ((dx * dx) + (dy * dy) > this.options.dragRadius * this.options.dragRadius) return;
+        }
+        // close or open item depending on active class
+        var $item = $(this).parent();
+
+        this[$item.hasClass(this.options.activeClass) ? 'close' : 'open']($item);
+    };
+
     Bellows.prototype.unbind = function() {
-        this.$element.off();
+        this.$bellows.off();
     };
-                 
+
     Bellows.prototype.destroy = function() {
         this.unbind();
-        this.$element.remove();
+        this.$bellows.remove();
     };
 
-    return Bellows;
-    
-})(Mobify.$, Mobify.UI.Utils);
-    
-(function($) {
-    $.fn.bellows = function(options) {
-        return this.each(function (i, elem) {
-            var $this = $(this)
-              , bellows = this.bellows;
+    Bellows.prototype._trigger = function(eventName, data) {
+        this.options[eventName].call(this, $.Event('bellows:' + eventName, { bubbles: false }), data);
+    };
 
-            if (!bellows) {
-                bellows = new Mobify.UI.Bellows(this, options); // pass through options
+    // BELLOWS PLUGIN
+    // =========================
+
+    $.fn.bellows = function (option) {
+        return this.each(function () {
+            var $this = $(this);
+            var data  = $this.data('bellows');
+
+            if (!data) {
+                $this.data('bellows', (data = new Bellows(this, option)));
             }
-
-            this.bellows = bellows; // Provide the bellows object to callers
+            if (typeof option == 'string') {
+                data[option]();
+            }
         });
     };
+
+    $.fn.bellows.Constructor = Bellows;
+
+
 })(Mobify.$);

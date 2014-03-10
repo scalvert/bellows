@@ -77,8 +77,11 @@ module.exports = function(grunt) {
                     rel: "build"
                 }
             ]
-        }
+        },
         // TODO: upload over a LATEST version and/or create a redirect?
+        jshint: {
+            all: ['src/**/*.js']
+        }
     });
 
     // Load the task plugins
@@ -91,6 +94,7 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-s3');
     grunt.loadNpmTasks('grunt-clean');
     grunt.loadNpmTasks('grunt-contrib-copy');
+    grunt.loadNpmTasks('grunt-contrib-jshint');
 
     // Default task(s).
     grunt.registerTask('serve', ['connect', 'watch']);
